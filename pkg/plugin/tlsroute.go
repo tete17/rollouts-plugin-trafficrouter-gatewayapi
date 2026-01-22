@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/argoproj-labs/rollouts-plugin-trafficrouter-gatewayapi/internal/defaults"
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	pluginTypes "github.com/argoproj/argo-rollouts/utils/plugin/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,28 +25,23 @@ func (r *RpcPlugin) setTLSRouteWeight(rollout *v1alpha1.Rollout, desiredWeight i
 	}
 	canaryServiceName := rollout.Spec.Strategy.Canary.CanaryService
 	stableServiceName := rollout.Spec.Strategy.Canary.StableService
-	routeRuleList := TLSRouteRuleList(tlsRoute.Spec.Rules)
-	canaryBackendRefs, err := getBackendRefs(canaryServiceName, routeRuleList)
-	if err != nil {
-		return pluginTypes.RpcError{
-			ErrorString: err.Error(),
-		}
-	}
-	for _, ref := range canaryBackendRefs {
-		ref.Weight = &desiredWeight
-	}
-	stableBackendRefs, err := getBackendRefs(stableServiceName, routeRuleList)
-	if err != nil {
-		return pluginTypes.RpcError{
-			ErrorString: err.Error(),
-		}
-	}
-	restWeight := 100 - desiredWeight
-	for _, ref := range stableBackendRefs {
-		ref.Weight = &restWeight
-	}
-	ensureInProgressLabel(tlsRoute, desiredWeight, gatewayAPIConfig)
-	updatedTLSRoute, err := tlsRouteClient.Update(ctx, tlsRoute, metav1.UpdateOptions{})
+	stableWeight := 100 - desiredWeight
+
+	applyConfig := buildTLSRouteApply(
+		tlsRoute.Name,
+		tlsRoute.Namespace,
+		tlsRoute.Spec.Rules,
+		canaryServiceName,
+		stableServiceName,
+		desiredWeight,
+		stableWeight,
+		buildInProgressLabels(desiredWeight, gatewayAPIConfig),
+	)
+
+	updatedTLSRoute, err := tlsRouteClient.Apply(ctx, applyConfig, metav1.ApplyOptions{
+		FieldManager: defaults.FieldManager,
+		Force:        true,
+	})
 	if r.IsTest {
 		r.UpdatedTLSRouteMock = updatedTLSRoute
 	}
