@@ -6,6 +6,29 @@ import (
 	"github.com/argoproj-labs/rollouts-plugin-trafficrouter-gatewayapi/internal/defaults"
 )
 
+// buildInProgressLabels returns a map containing the in-progress label when desiredWeight > 0,
+// or nil when the label should be removed (desiredWeight == 0).
+// This function is designed for use with Server-Side Apply (SSA).
+func buildInProgressLabels(desiredWeight int32, config *GatewayAPITrafficRouting) map[string]string {
+	if config == nil || config.DisableInProgressLabel {
+		return nil
+	}
+
+	key := config.inProgressLabelKey()
+	if key == "" {
+		return nil
+	}
+
+	if desiredWeight == 0 {
+		// Return empty map to remove the label from our field manager's ownership
+		return map[string]string{}
+	}
+
+	return map[string]string{
+		key: config.inProgressLabelValue(),
+	}
+}
+
 func ensureInProgressLabel(obj metav1.Object, desiredWeight int32, config *GatewayAPITrafficRouting) bool {
 	if obj == nil || config == nil || config.DisableInProgressLabel {
 		return false
