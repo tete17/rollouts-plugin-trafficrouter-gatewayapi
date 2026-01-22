@@ -190,25 +190,36 @@ func (r *RpcPlugin) setHTTPHeaderRoute(rollout *v1alpha1.Rollout, headerRouting 
 	taskList := []utils.Task{
 		{
 			Action: func() error {
-				updatedHTTPRoute, err := httpRouteClient.Update(ctx, httpRoute, metav1.UpdateOptions{})
+				applyConfig := buildHTTPRouteApplyFromRules(
+					httpRoute.Name,
+					httpRoute.Namespace,
+					httpRoute.Spec.Rules,
+					nil,
+				)
+				updatedHTTPRoute, err := httpRouteClient.Apply(ctx, applyConfig, metav1.ApplyOptions{
+					FieldManager: defaults.FieldManager,
+					Force:        true,
+				})
 				if r.IsTest {
 					r.UpdatedHTTPRouteMock = updatedHTTPRoute
 				}
-				if err != nil {
-					return err
-				}
-				return nil
+				return err
 			},
 			ReverseAction: func() error {
-				httpRoute.Spec.Rules = oldHTTPRuleList
-				updatedHTTPRoute, err := httpRouteClient.Update(ctx, httpRoute, metav1.UpdateOptions{})
+				applyConfig := buildHTTPRouteApplyFromRules(
+					httpRoute.Name,
+					httpRoute.Namespace,
+					oldHTTPRuleList,
+					nil,
+				)
+				updatedHTTPRoute, err := httpRouteClient.Apply(ctx, applyConfig, metav1.ApplyOptions{
+					FieldManager: defaults.FieldManager,
+					Force:        true,
+				})
 				if r.IsTest {
 					r.UpdatedHTTPRouteMock = updatedHTTPRoute
 				}
-				if err != nil {
-					return err
-				}
-				return nil
+				return err
 			},
 		},
 		{
@@ -342,25 +353,36 @@ func (r *RpcPlugin) removeHTTPManagedRoutes(managedRouteNameList []v1alpha1.Mang
 	taskList := []utils.Task{
 		{
 			Action: func() error {
-				updatedHTTPRoute, err := httpRouteClient.Update(ctx, httpRoute, metav1.UpdateOptions{})
+				applyConfig := buildHTTPRouteApplyFromRules(
+					httpRoute.Name,
+					httpRoute.Namespace,
+					httpRoute.Spec.Rules,
+					nil,
+				)
+				updatedHTTPRoute, err := httpRouteClient.Apply(ctx, applyConfig, metav1.ApplyOptions{
+					FieldManager: defaults.FieldManager,
+					Force:        true,
+				})
 				if r.IsTest {
 					r.UpdatedHTTPRouteMock = updatedHTTPRoute
 				}
-				if err != nil {
-					return err
-				}
-				return nil
+				return err
 			},
 			ReverseAction: func() error {
-				httpRoute.Spec.Rules = oldHTTPRuleList
-				updatedHTTPRoute, err := httpRouteClient.Update(ctx, httpRoute, metav1.UpdateOptions{})
+				applyConfig := buildHTTPRouteApplyFromRules(
+					httpRoute.Name,
+					httpRoute.Namespace,
+					oldHTTPRuleList,
+					nil,
+				)
+				updatedHTTPRoute, err := httpRouteClient.Apply(ctx, applyConfig, metav1.ApplyOptions{
+					FieldManager: defaults.FieldManager,
+					Force:        true,
+				})
 				if r.IsTest {
 					r.UpdatedHTTPRouteMock = updatedHTTPRoute
 				}
-				if err != nil {
-					return err
-				}
-				return nil
+				return err
 			},
 		},
 		{
