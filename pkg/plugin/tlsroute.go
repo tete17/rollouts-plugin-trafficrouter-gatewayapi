@@ -27,6 +27,8 @@ func (r *RpcPlugin) setTLSRouteWeight(rollout *v1alpha1.Rollout, desiredWeight i
 	stableServiceName := rollout.Spec.Strategy.Canary.StableService
 	stableWeight := 100 - desiredWeight
 
+	// Modify labels in-place using existing logic, then copy to apply config
+	ensureInProgressLabel(tlsRoute, desiredWeight, gatewayAPIConfig)
 	applyConfig := buildTLSRouteApply(
 		tlsRoute.Name,
 		tlsRoute.Namespace,
@@ -35,7 +37,7 @@ func (r *RpcPlugin) setTLSRouteWeight(rollout *v1alpha1.Rollout, desiredWeight i
 		stableServiceName,
 		desiredWeight,
 		stableWeight,
-		buildInProgressLabels(desiredWeight, gatewayAPIConfig),
+		tlsRoute.Labels,
 	)
 
 	updatedTLSRoute, err := tlsRouteClient.Apply(ctx, applyConfig, metav1.ApplyOptions{

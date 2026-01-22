@@ -35,6 +35,8 @@ func (r *RpcPlugin) setGRPCRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 	stableServiceName := rollout.Spec.Strategy.Canary.StableService
 	stableWeight := 100 - desiredWeight
 
+	// Modify labels in-place using existing logic, then copy to apply config
+	ensureInProgressLabel(grpcRoute, desiredWeight, gatewayAPIConfig)
 	applyConfig := buildGRPCRouteApply(
 		grpcRoute.Name,
 		grpcRoute.Namespace,
@@ -43,7 +45,7 @@ func (r *RpcPlugin) setGRPCRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 		stableServiceName,
 		desiredWeight,
 		stableWeight,
-		buildInProgressLabels(desiredWeight, gatewayAPIConfig),
+		grpcRoute.Labels,
 	)
 
 	updatedGRPCRoute, err := grpcRouteClient.Apply(ctx, applyConfig, metav1.ApplyOptions{

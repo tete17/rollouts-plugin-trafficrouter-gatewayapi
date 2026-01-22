@@ -58,11 +58,13 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 		r.LogCtx.Error(err, "Failed to handle experiment services")
 	}
 
+	// Modify labels in-place using existing logic, then copy to apply config
+	ensureInProgressLabel(httpRoute, desiredWeight, gatewayAPIConfig)
 	applyConfig := buildHTTPRouteApplyFromRules(
 		httpRoute.Name,
 		httpRoute.Namespace,
 		httpRoute.Spec.Rules,
-		buildInProgressLabels(desiredWeight, gatewayAPIConfig),
+		httpRoute.Labels,
 	)
 
 	updatedHTTPRoute, err := httpRouteClient.Apply(ctx, applyConfig, metav1.ApplyOptions{

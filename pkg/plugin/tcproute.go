@@ -27,6 +27,8 @@ func (r *RpcPlugin) setTCPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight i
 	stableServiceName := rollout.Spec.Strategy.Canary.StableService
 	stableWeight := 100 - desiredWeight
 
+	// Modify labels in-place using existing logic, then copy to apply config
+	ensureInProgressLabel(tcpRoute, desiredWeight, gatewayAPIConfig)
 	applyConfig := buildTCPRouteApply(
 		tcpRoute.Name,
 		tcpRoute.Namespace,
@@ -35,7 +37,7 @@ func (r *RpcPlugin) setTCPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight i
 		stableServiceName,
 		desiredWeight,
 		stableWeight,
-		buildInProgressLabels(desiredWeight, gatewayAPIConfig),
+		tcpRoute.Labels,
 	)
 
 	updatedTCPRoute, err := tcpRouteClient.Apply(ctx, applyConfig, metav1.ApplyOptions{
