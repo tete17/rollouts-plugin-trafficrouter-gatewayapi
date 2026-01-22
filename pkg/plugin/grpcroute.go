@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/argoproj-labs/rollouts-plugin-trafficrouter-gatewayapi/internal/defaults"
 	"github.com/argoproj-labs/rollouts-plugin-trafficrouter-gatewayapi/internal/utils"
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	pluginTypes "github.com/argoproj/argo-rollouts/utils/plugin/types"
@@ -32,28 +33,23 @@ func (r *RpcPlugin) setGRPCRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 	}
 	canaryServiceName := rollout.Spec.Strategy.Canary.CanaryService
 	stableServiceName := rollout.Spec.Strategy.Canary.StableService
-	routeRuleList := GRPCRouteRuleList(grpcRoute.Spec.Rules)
-	canaryBackendRefs, err := getBackendRefs(canaryServiceName, routeRuleList)
-	if err != nil {
-		return pluginTypes.RpcError{
-			ErrorString: err.Error(),
-		}
-	}
-	for _, ref := range canaryBackendRefs {
-		ref.Weight = &desiredWeight
-	}
-	stableBackendRefs, err := getBackendRefs(stableServiceName, routeRuleList)
-	if err != nil {
-		return pluginTypes.RpcError{
-			ErrorString: err.Error(),
-		}
-	}
-	restWeight := 100 - desiredWeight
-	for _, ref := range stableBackendRefs {
-		ref.Weight = &restWeight
-	}
-	ensureInProgressLabel(grpcRoute, desiredWeight, gatewayAPIConfig)
-	updatedGRPCRoute, err := grpcRouteClient.Update(ctx, grpcRoute, metav1.UpdateOptions{})
+	stableWeight := 100 - desiredWeight
+
+	applyConfig := buildGRPCRouteApply(
+		grpcRoute.Name,
+		grpcRoute.Namespace,
+		grpcRoute.Spec.Rules,
+		canaryServiceName,
+		stableServiceName,
+		desiredWeight,
+		stableWeight,
+		buildInProgressLabels(desiredWeight, gatewayAPIConfig),
+	)
+
+	updatedGRPCRoute, err := grpcRouteClient.Apply(ctx, applyConfig, metav1.ApplyOptions{
+		FieldManager: defaults.FieldManager,
+		Force:        true,
+	})
 	if r.IsTest {
 		r.UpdatedGRPCRouteMock = updatedGRPCRoute
 	}
