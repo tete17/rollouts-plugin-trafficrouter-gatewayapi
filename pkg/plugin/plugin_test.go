@@ -17,7 +17,6 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	log "github.com/sirupsen/logrus"
-	gwFake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
 
 	goPlugin "github.com/hashicorp/go-plugin"
 )
@@ -34,10 +33,10 @@ func TestRunSuccessfully(t *testing.T) {
 	rpcPluginImp := &RpcPlugin{
 		LogCtx:          utils.SetupLog(),
 		IsTest:          true,
-		HTTPRouteClient: gwFake.NewSimpleClientset(&mocks.HTTPRouteObj).GatewayV1().HTTPRoutes(mocks.RolloutNamespace),
-		GRPCRouteClient: gwFake.NewSimpleClientset(&mocks.GRPCRouteObj).GatewayV1().GRPCRoutes(mocks.RolloutNamespace),
-		TCPRouteClient:  gwFake.NewSimpleClientset(&mocks.TCPPRouteObj).GatewayV1alpha2().TCPRoutes(mocks.RolloutNamespace),
-		TLSRouteClient:  gwFake.NewSimpleClientset(&mocks.TLSRouteObj).GatewayV1alpha2().TLSRoutes(mocks.RolloutNamespace),
+		HTTPRouteClient: mocks.NewFakeClientsetWithSSA(&mocks.HTTPRouteObj).GatewayV1().HTTPRoutes(mocks.RolloutNamespace),
+		GRPCRouteClient: mocks.NewFakeClientsetWithSSA(&mocks.GRPCRouteObj).GatewayV1().GRPCRoutes(mocks.RolloutNamespace),
+		TCPRouteClient:  mocks.NewFakeClientsetWithSSA(&mocks.TCPPRouteObj).GatewayV1alpha2().TCPRoutes(mocks.RolloutNamespace),
+		TLSRouteClient:  mocks.NewFakeClientsetWithSSA(&mocks.TLSRouteObj).GatewayV1alpha2().TLSRoutes(mocks.RolloutNamespace),
 		TestClientset:   fake.NewSimpleClientset(&mocks.ConfigMapObj).CoreV1().ConfigMaps(mocks.RolloutNamespace),
 	}
 
@@ -117,7 +116,7 @@ func TestRunSuccessfully(t *testing.T) {
 	})
 	t.Run("SetHTTPRouteWeightAddsAndRemovesLabel", func(t *testing.T) {
 		httpRoute := mocks.CreateHTTPRouteWithLabels(mocks.HTTPRouteName, nil)
-		rpcPluginImp.HTTPRouteClient = gwFake.NewSimpleClientset(httpRoute).GatewayV1().HTTPRoutes(mocks.RolloutNamespace)
+		rpcPluginImp.HTTPRouteClient = mocks.NewFakeClientsetWithSSA(httpRoute).GatewayV1().HTTPRoutes(mocks.RolloutNamespace)
 		rollout := newRollout(mocks.StableServiceName, mocks.CanaryServiceName, &GatewayAPITrafficRouting{
 			Namespace: mocks.RolloutNamespace,
 			HTTPRoute: mocks.HTTPRouteName,
@@ -148,7 +147,7 @@ func TestRunSuccessfully(t *testing.T) {
 	})
 	t.Run("SetGRPCRouteWeightAddsAndRemovesLabel", func(t *testing.T) {
 		grpcRoute := mocks.CreateGRPCRouteWithLabels(mocks.GRPCRouteName, nil)
-		rpcPluginImp.GRPCRouteClient = gwFake.NewSimpleClientset(grpcRoute).GatewayV1().GRPCRoutes(mocks.RolloutNamespace)
+		rpcPluginImp.GRPCRouteClient = mocks.NewFakeClientsetWithSSA(grpcRoute).GatewayV1().GRPCRoutes(mocks.RolloutNamespace)
 		rollout := newRollout(mocks.StableServiceName, mocks.CanaryServiceName, &GatewayAPITrafficRouting{
 			Namespace: mocks.RolloutNamespace,
 			GRPCRoute: mocks.GRPCRouteName,
@@ -180,7 +179,7 @@ func TestRunSuccessfully(t *testing.T) {
 	})
 	t.Run("SetTCPRouteWeightAddsAndRemovesLabel", func(t *testing.T) {
 		tcpRoute := mocks.CreateTCPRouteWithLabels(mocks.TCPRouteName, nil)
-		rpcPluginImp.TCPRouteClient = gwFake.NewSimpleClientset(tcpRoute).GatewayV1alpha2().TCPRoutes(mocks.RolloutNamespace)
+		rpcPluginImp.TCPRouteClient = mocks.NewFakeClientsetWithSSA(tcpRoute).GatewayV1alpha2().TCPRoutes(mocks.RolloutNamespace)
 		rollout := newRollout(mocks.StableServiceName, mocks.CanaryServiceName,
 			&GatewayAPITrafficRouting{
 				Namespace: mocks.RolloutNamespace,
@@ -213,7 +212,7 @@ func TestRunSuccessfully(t *testing.T) {
 	})
 	t.Run("SetTLSRouteWeightAddsAndRemovesLabel", func(t *testing.T) {
 		tlsRoute := mocks.CreateTLSRouteWithLabels(mocks.TLSRouteName, nil)
-		rpcPluginImp.TLSRouteClient = gwFake.NewSimpleClientset(tlsRoute).GatewayV1alpha2().TLSRoutes(mocks.RolloutNamespace)
+		rpcPluginImp.TLSRouteClient = mocks.NewFakeClientsetWithSSA(tlsRoute).GatewayV1alpha2().TLSRoutes(mocks.RolloutNamespace)
 		rollout := newRollout(mocks.StableServiceName, mocks.CanaryServiceName,
 			&GatewayAPITrafficRouting{
 				Namespace: mocks.RolloutNamespace,
@@ -352,7 +351,7 @@ func TestRunSuccessfully(t *testing.T) {
 		}
 
 		// Update the plugin's GRPCRouteClient with the new mock
-		rpcPluginImp.GRPCRouteClient = gwFake.NewSimpleClientset(&grpcRouteWithFilters).GatewayV1().GRPCRoutes(mocks.RolloutNamespace)
+		rpcPluginImp.GRPCRouteClient = mocks.NewFakeClientsetWithSSA(&grpcRouteWithFilters).GatewayV1().GRPCRoutes(mocks.RolloutNamespace)
 
 		headerName := "X-Test"
 		headerValue := "test"
@@ -398,7 +397,7 @@ func TestRunSuccessfully(t *testing.T) {
 		grpcRouteWithoutFilters.Spec.Rules[0].Filters = nil // Explicitly set to nil
 
 		// Update the plugin's GRPCRouteClient with the mock without filters
-		rpcPluginImp.GRPCRouteClient = gwFake.NewSimpleClientset(&grpcRouteWithoutFilters).GatewayV1().GRPCRoutes(mocks.RolloutNamespace)
+		rpcPluginImp.GRPCRouteClient = mocks.NewFakeClientsetWithSSA(&grpcRouteWithoutFilters).GatewayV1().GRPCRoutes(mocks.RolloutNamespace)
 
 		headerName := "X-Test"
 		headerValue := "test"
@@ -459,7 +458,7 @@ func TestRunSuccessfully(t *testing.T) {
 		}
 
 		// Update the plugin's HTTPRouteClient with the new mock
-		rpcPluginImp.HTTPRouteClient = gwFake.NewSimpleClientset(&httpRouteWithFilters).GatewayV1().HTTPRoutes(mocks.RolloutNamespace)
+		rpcPluginImp.HTTPRouteClient = mocks.NewFakeClientsetWithSSA(&httpRouteWithFilters).GatewayV1().HTTPRoutes(mocks.RolloutNamespace)
 
 		headerName := "X-Test"
 		headerValue := "test"
@@ -505,7 +504,7 @@ func TestRunSuccessfully(t *testing.T) {
 		httpRouteWithoutFilters.Spec.Rules[0].Filters = nil // Explicitly set to nil
 
 		// Update the plugin's HTTPRouteClient with the mock without filters
-		rpcPluginImp.HTTPRouteClient = gwFake.NewSimpleClientset(&httpRouteWithoutFilters).GatewayV1().HTTPRoutes(mocks.RolloutNamespace)
+		rpcPluginImp.HTTPRouteClient = mocks.NewFakeClientsetWithSSA(&httpRouteWithoutFilters).GatewayV1().HTTPRoutes(mocks.RolloutNamespace)
 
 		headerName := "X-Test"
 		headerValue := "test"

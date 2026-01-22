@@ -321,7 +321,7 @@ func buildHTTPRouteApplyFromRules(
 	return applyConfig
 }
 
-// buildHTTPRouteRuleApplyFromRule creates an HTTPRouteRuleApplyConfiguration preserving all existing weights.
+// buildHTTPRouteRuleApplyFromRule creates an HTTPRouteRuleApplyConfiguration preserving all fields.
 func buildHTTPRouteRuleApplyFromRule(rule gatewayv1.HTTPRouteRule) *applyconfigv1.HTTPRouteRuleApplyConfiguration {
 	ruleConfig := applyconfigv1.HTTPRouteRule()
 
@@ -329,12 +329,181 @@ func buildHTTPRouteRuleApplyFromRule(rule gatewayv1.HTTPRouteRule) *applyconfigv
 		ruleConfig.WithName(*rule.Name)
 	}
 
+	// Copy matches
+	for _, match := range rule.Matches {
+		matchConfig := buildHTTPRouteMatchApply(match)
+		ruleConfig.WithMatches(matchConfig)
+	}
+
+	// Copy filters
+	for _, filter := range rule.Filters {
+		filterConfig := buildHTTPRouteFilterApply(filter)
+		ruleConfig.WithFilters(filterConfig)
+	}
+
+	// Copy backend refs
 	for _, backendRef := range rule.BackendRefs {
 		backendConfig := buildHTTPBackendRefApplyFromRef(backendRef)
 		ruleConfig.WithBackendRefs(backendConfig)
 	}
 
+	// Copy timeouts
+	if rule.Timeouts != nil {
+		timeoutsConfig := applyconfigv1.HTTPRouteTimeouts()
+		if rule.Timeouts.Request != nil {
+			timeoutsConfig.WithRequest(*rule.Timeouts.Request)
+		}
+		if rule.Timeouts.BackendRequest != nil {
+			timeoutsConfig.WithBackendRequest(*rule.Timeouts.BackendRequest)
+		}
+		ruleConfig.WithTimeouts(timeoutsConfig)
+	}
+
 	return ruleConfig
+}
+
+// buildHTTPRouteMatchApply creates an HTTPRouteMatchApplyConfiguration from an HTTPRouteMatch.
+func buildHTTPRouteMatchApply(match gatewayv1.HTTPRouteMatch) *applyconfigv1.HTTPRouteMatchApplyConfiguration {
+	matchConfig := applyconfigv1.HTTPRouteMatch()
+
+	if match.Path != nil {
+		pathConfig := applyconfigv1.HTTPPathMatch()
+		if match.Path.Type != nil {
+			pathConfig.WithType(*match.Path.Type)
+		}
+		if match.Path.Value != nil {
+			pathConfig.WithValue(*match.Path.Value)
+		}
+		matchConfig.WithPath(pathConfig)
+	}
+
+	for _, header := range match.Headers {
+		headerConfig := applyconfigv1.HTTPHeaderMatch().
+			WithName(header.Name)
+		if header.Type != nil {
+			headerConfig.WithType(*header.Type)
+		}
+		headerConfig.WithValue(header.Value)
+		matchConfig.WithHeaders(headerConfig)
+	}
+
+	for _, query := range match.QueryParams {
+		queryConfig := applyconfigv1.HTTPQueryParamMatch().
+			WithName(query.Name).
+			WithValue(query.Value)
+		if query.Type != nil {
+			queryConfig.WithType(*query.Type)
+		}
+		matchConfig.WithQueryParams(queryConfig)
+	}
+
+	if match.Method != nil {
+		matchConfig.WithMethod(*match.Method)
+	}
+
+	return matchConfig
+}
+
+// buildHTTPRouteFilterApply creates an HTTPRouteFilterApplyConfiguration from an HTTPRouteFilter.
+func buildHTTPRouteFilterApply(filter gatewayv1.HTTPRouteFilter) *applyconfigv1.HTTPRouteFilterApplyConfiguration {
+	filterConfig := applyconfigv1.HTTPRouteFilter().
+		WithType(filter.Type)
+
+	if filter.RequestHeaderModifier != nil {
+		headerModConfig := applyconfigv1.HTTPHeaderFilter()
+		for _, header := range filter.RequestHeaderModifier.Set {
+			headerModConfig.WithSet(applyconfigv1.HTTPHeader().WithName(header.Name).WithValue(header.Value))
+		}
+		for _, header := range filter.RequestHeaderModifier.Add {
+			headerModConfig.WithAdd(applyconfigv1.HTTPHeader().WithName(header.Name).WithValue(header.Value))
+		}
+		headerModConfig.WithRemove(filter.RequestHeaderModifier.Remove...)
+		filterConfig.WithRequestHeaderModifier(headerModConfig)
+	}
+
+	if filter.ResponseHeaderModifier != nil {
+		headerModConfig := applyconfigv1.HTTPHeaderFilter()
+		for _, header := range filter.ResponseHeaderModifier.Set {
+			headerModConfig.WithSet(applyconfigv1.HTTPHeader().WithName(header.Name).WithValue(header.Value))
+		}
+		for _, header := range filter.ResponseHeaderModifier.Add {
+			headerModConfig.WithAdd(applyconfigv1.HTTPHeader().WithName(header.Name).WithValue(header.Value))
+		}
+		headerModConfig.WithRemove(filter.ResponseHeaderModifier.Remove...)
+		filterConfig.WithResponseHeaderModifier(headerModConfig)
+	}
+
+	if filter.RequestMirror != nil {
+		mirrorConfig := applyconfigv1.HTTPRequestMirrorFilter()
+		backendRefConfig := applyconfigv1.BackendObjectReference()
+		if filter.RequestMirror.BackendRef.Group != nil {
+			backendRefConfig.WithGroup(*filter.RequestMirror.BackendRef.Group)
+		}
+		if filter.RequestMirror.BackendRef.Kind != nil {
+			backendRefConfig.WithKind(*filter.RequestMirror.BackendRef.Kind)
+		}
+		backendRefConfig.WithName(filter.RequestMirror.BackendRef.Name)
+		if filter.RequestMirror.BackendRef.Namespace != nil {
+			backendRefConfig.WithNamespace(*filter.RequestMirror.BackendRef.Namespace)
+		}
+		if filter.RequestMirror.BackendRef.Port != nil {
+			backendRefConfig.WithPort(int32(*filter.RequestMirror.BackendRef.Port))
+		}
+		mirrorConfig.WithBackendRef(backendRefConfig)
+		if filter.RequestMirror.Percent != nil {
+			mirrorConfig.WithPercent(*filter.RequestMirror.Percent)
+		}
+		filterConfig.WithRequestMirror(mirrorConfig)
+	}
+
+	if filter.RequestRedirect != nil {
+		redirectConfig := applyconfigv1.HTTPRequestRedirectFilter()
+		if filter.RequestRedirect.Scheme != nil {
+			redirectConfig.WithScheme(*filter.RequestRedirect.Scheme)
+		}
+		if filter.RequestRedirect.Hostname != nil {
+			redirectConfig.WithHostname(*filter.RequestRedirect.Hostname)
+		}
+		if filter.RequestRedirect.Path != nil {
+			pathModConfig := applyconfigv1.HTTPPathModifier().
+				WithType(filter.RequestRedirect.Path.Type)
+			if filter.RequestRedirect.Path.ReplaceFullPath != nil {
+				pathModConfig.WithReplaceFullPath(*filter.RequestRedirect.Path.ReplaceFullPath)
+			}
+			if filter.RequestRedirect.Path.ReplacePrefixMatch != nil {
+				pathModConfig.WithReplacePrefixMatch(*filter.RequestRedirect.Path.ReplacePrefixMatch)
+			}
+			redirectConfig.WithPath(pathModConfig)
+		}
+		if filter.RequestRedirect.Port != nil {
+			redirectConfig.WithPort(int32(*filter.RequestRedirect.Port))
+		}
+		if filter.RequestRedirect.StatusCode != nil {
+			redirectConfig.WithStatusCode(*filter.RequestRedirect.StatusCode)
+		}
+		filterConfig.WithRequestRedirect(redirectConfig)
+	}
+
+	if filter.URLRewrite != nil {
+		rewriteConfig := applyconfigv1.HTTPURLRewriteFilter()
+		if filter.URLRewrite.Hostname != nil {
+			rewriteConfig.WithHostname(*filter.URLRewrite.Hostname)
+		}
+		if filter.URLRewrite.Path != nil {
+			pathModConfig := applyconfigv1.HTTPPathModifier().
+				WithType(filter.URLRewrite.Path.Type)
+			if filter.URLRewrite.Path.ReplaceFullPath != nil {
+				pathModConfig.WithReplaceFullPath(*filter.URLRewrite.Path.ReplaceFullPath)
+			}
+			if filter.URLRewrite.Path.ReplacePrefixMatch != nil {
+				pathModConfig.WithReplacePrefixMatch(*filter.URLRewrite.Path.ReplacePrefixMatch)
+			}
+			rewriteConfig.WithPath(pathModConfig)
+		}
+		filterConfig.WithURLRewrite(rewriteConfig)
+	}
+
+	return filterConfig
 }
 
 // buildHTTPBackendRefApplyFromRef creates an HTTPBackendRefApplyConfiguration preserving the existing weight.
@@ -383,7 +552,7 @@ func buildGRPCRouteApplyFromRules(
 	return applyConfig
 }
 
-// buildGRPCRouteRuleApplyFromRule creates a GRPCRouteRuleApplyConfiguration preserving all existing weights.
+// buildGRPCRouteRuleApplyFromRule creates a GRPCRouteRuleApplyConfiguration preserving all fields.
 func buildGRPCRouteRuleApplyFromRule(rule gatewayv1.GRPCRouteRule) *applyconfigv1.GRPCRouteRuleApplyConfiguration {
 	ruleConfig := applyconfigv1.GRPCRouteRule()
 
@@ -391,12 +560,111 @@ func buildGRPCRouteRuleApplyFromRule(rule gatewayv1.GRPCRouteRule) *applyconfigv
 		ruleConfig.WithName(*rule.Name)
 	}
 
+	// Copy matches
+	for _, match := range rule.Matches {
+		matchConfig := buildGRPCRouteMatchApply(match)
+		ruleConfig.WithMatches(matchConfig)
+	}
+
+	// Copy filters
+	for _, filter := range rule.Filters {
+		filterConfig := buildGRPCRouteFilterApply(filter)
+		ruleConfig.WithFilters(filterConfig)
+	}
+
+	// Copy backend refs
 	for _, backendRef := range rule.BackendRefs {
 		backendConfig := buildGRPCBackendRefApplyFromRef(backendRef)
 		ruleConfig.WithBackendRefs(backendConfig)
 	}
 
 	return ruleConfig
+}
+
+// buildGRPCRouteMatchApply creates a GRPCRouteMatchApplyConfiguration from a GRPCRouteMatch.
+func buildGRPCRouteMatchApply(match gatewayv1.GRPCRouteMatch) *applyconfigv1.GRPCRouteMatchApplyConfiguration {
+	matchConfig := applyconfigv1.GRPCRouteMatch()
+
+	if match.Method != nil {
+		methodConfig := applyconfigv1.GRPCMethodMatch()
+		if match.Method.Type != nil {
+			methodConfig.WithType(*match.Method.Type)
+		}
+		if match.Method.Service != nil {
+			methodConfig.WithService(*match.Method.Service)
+		}
+		if match.Method.Method != nil {
+			methodConfig.WithMethod(*match.Method.Method)
+		}
+		matchConfig.WithMethod(methodConfig)
+	}
+
+	for _, header := range match.Headers {
+		headerConfig := applyconfigv1.GRPCHeaderMatch().
+			WithName(header.Name).
+			WithValue(header.Value)
+		if header.Type != nil {
+			headerConfig.WithType(*header.Type)
+		}
+		matchConfig.WithHeaders(headerConfig)
+	}
+
+	return matchConfig
+}
+
+// buildGRPCRouteFilterApply creates a GRPCRouteFilterApplyConfiguration from a GRPCRouteFilter.
+func buildGRPCRouteFilterApply(filter gatewayv1.GRPCRouteFilter) *applyconfigv1.GRPCRouteFilterApplyConfiguration {
+	filterConfig := applyconfigv1.GRPCRouteFilter().
+		WithType(filter.Type)
+
+	if filter.RequestHeaderModifier != nil {
+		headerModConfig := applyconfigv1.HTTPHeaderFilter()
+		for _, header := range filter.RequestHeaderModifier.Set {
+			headerModConfig.WithSet(applyconfigv1.HTTPHeader().WithName(header.Name).WithValue(header.Value))
+		}
+		for _, header := range filter.RequestHeaderModifier.Add {
+			headerModConfig.WithAdd(applyconfigv1.HTTPHeader().WithName(header.Name).WithValue(header.Value))
+		}
+		headerModConfig.WithRemove(filter.RequestHeaderModifier.Remove...)
+		filterConfig.WithRequestHeaderModifier(headerModConfig)
+	}
+
+	if filter.ResponseHeaderModifier != nil {
+		headerModConfig := applyconfigv1.HTTPHeaderFilter()
+		for _, header := range filter.ResponseHeaderModifier.Set {
+			headerModConfig.WithSet(applyconfigv1.HTTPHeader().WithName(header.Name).WithValue(header.Value))
+		}
+		for _, header := range filter.ResponseHeaderModifier.Add {
+			headerModConfig.WithAdd(applyconfigv1.HTTPHeader().WithName(header.Name).WithValue(header.Value))
+		}
+		headerModConfig.WithRemove(filter.ResponseHeaderModifier.Remove...)
+		filterConfig.WithResponseHeaderModifier(headerModConfig)
+	}
+
+	if filter.RequestMirror != nil {
+		mirrorConfig := applyconfigv1.HTTPRequestMirrorFilter()
+		backendRefConfig := applyconfigv1.BackendObjectReference()
+		if filter.RequestMirror.BackendRef.Group != nil {
+			backendRefConfig.WithGroup(*filter.RequestMirror.BackendRef.Group)
+		}
+		if filter.RequestMirror.BackendRef.Kind != nil {
+			backendRefConfig.WithKind(*filter.RequestMirror.BackendRef.Kind)
+		}
+		backendRefConfig.WithName(filter.RequestMirror.BackendRef.Name)
+		if filter.RequestMirror.BackendRef.Namespace != nil {
+			backendRefConfig.WithNamespace(*filter.RequestMirror.BackendRef.Namespace)
+		}
+		if filter.RequestMirror.BackendRef.Port != nil {
+			backendRefConfig.WithPort(int32(*filter.RequestMirror.BackendRef.Port))
+		}
+		mirrorConfig.WithBackendRef(backendRefConfig)
+		if filter.RequestMirror.Percent != nil {
+			mirrorConfig.WithPercent(*filter.RequestMirror.Percent)
+		}
+		filterConfig.WithRequestMirror(mirrorConfig)
+	}
+
+	return filterConfig
 }
 
 // buildGRPCBackendRefApplyFromRef creates a GRPCBackendRefApplyConfiguration preserving the existing weight.
