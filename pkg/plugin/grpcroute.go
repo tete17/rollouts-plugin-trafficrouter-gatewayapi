@@ -176,25 +176,36 @@ func (r *RpcPlugin) setGRPCHeaderRoute(rollout *v1alpha1.Rollout, headerRouting 
 	taskList := []utils.Task{
 		{
 			Action: func() error {
-				updatedGRPCRoute, err := grpcRouteClient.Update(ctx, grpcRoute, metav1.UpdateOptions{})
+				applyConfig := buildGRPCRouteApplyFromRules(
+					grpcRoute.Name,
+					grpcRoute.Namespace,
+					grpcRoute.Spec.Rules,
+					nil,
+				)
+				updatedGRPCRoute, err := grpcRouteClient.Apply(ctx, applyConfig, metav1.ApplyOptions{
+					FieldManager: defaults.FieldManager,
+					Force:        true,
+				})
 				if r.IsTest {
 					r.UpdatedGRPCRouteMock = updatedGRPCRoute
 				}
-				if err != nil {
-					return err
-				}
-				return nil
+				return err
 			},
 			ReverseAction: func() error {
-				grpcRoute.Spec.Rules = oldGRPCRuleList
-				updatedGRPCRoute, err := grpcRouteClient.Update(ctx, grpcRoute, metav1.UpdateOptions{})
+				applyConfig := buildGRPCRouteApplyFromRules(
+					grpcRoute.Name,
+					grpcRoute.Namespace,
+					oldGRPCRuleList,
+					nil,
+				)
+				updatedGRPCRoute, err := grpcRouteClient.Apply(ctx, applyConfig, metav1.ApplyOptions{
+					FieldManager: defaults.FieldManager,
+					Force:        true,
+				})
 				if r.IsTest {
 					r.UpdatedGRPCRouteMock = updatedGRPCRoute
 				}
-				if err != nil {
-					return err
-				}
-				return nil
+				return err
 			},
 		},
 		{
@@ -328,25 +339,36 @@ func (r *RpcPlugin) removeGRPCManagedRoutes(managedRouteNameList []v1alpha1.Mang
 	taskList := []utils.Task{
 		{
 			Action: func() error {
-				updatedGRPCRoute, err := grpcRouteClient.Update(ctx, grpcRoute, metav1.UpdateOptions{})
+				applyConfig := buildGRPCRouteApplyFromRules(
+					grpcRoute.Name,
+					grpcRoute.Namespace,
+					grpcRoute.Spec.Rules,
+					nil,
+				)
+				updatedGRPCRoute, err := grpcRouteClient.Apply(ctx, applyConfig, metav1.ApplyOptions{
+					FieldManager: defaults.FieldManager,
+					Force:        true,
+				})
 				if r.IsTest {
 					r.UpdatedGRPCRouteMock = updatedGRPCRoute
 				}
-				if err != nil {
-					return err
-				}
-				return nil
+				return err
 			},
 			ReverseAction: func() error {
-				grpcRoute.Spec.Rules = oldGRPCRuleList
-				updatedGRPCRoute, err := grpcRouteClient.Update(ctx, grpcRoute, metav1.UpdateOptions{})
+				applyConfig := buildGRPCRouteApplyFromRules(
+					grpcRoute.Name,
+					grpcRoute.Namespace,
+					oldGRPCRuleList,
+					nil,
+				)
+				updatedGRPCRoute, err := grpcRouteClient.Apply(ctx, applyConfig, metav1.ApplyOptions{
+					FieldManager: defaults.FieldManager,
+					Force:        true,
+				})
 				if r.IsTest {
 					r.UpdatedGRPCRouteMock = updatedGRPCRoute
 				}
-				if err != nil {
-					return err
-				}
-				return nil
+				return err
 			},
 		},
 		{
