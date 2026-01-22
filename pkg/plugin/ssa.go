@@ -296,3 +296,129 @@ func buildBackendRefApply(
 
 	return backendConfig
 }
+
+// buildHTTPRouteApplyFromRules creates an HTTPRouteApplyConfiguration from already-modified rules.
+// This is useful when the rules have been modified in place (e.g., by experiment handling)
+// and we want to preserve those modifications.
+func buildHTTPRouteApplyFromRules(
+	name, namespace string,
+	rules []gatewayv1.HTTPRouteRule,
+	labels map[string]string,
+) *applyconfigv1.HTTPRouteApplyConfiguration {
+	applyConfig := applyconfigv1.HTTPRoute(name, namespace)
+
+	if labels != nil {
+		applyConfig.WithLabels(labels)
+	}
+
+	var ruleConfigs []*applyconfigv1.HTTPRouteRuleApplyConfiguration
+	for _, rule := range rules {
+		ruleConfig := buildHTTPRouteRuleApplyFromRule(rule)
+		ruleConfigs = append(ruleConfigs, ruleConfig)
+	}
+
+	applyConfig.WithSpec(applyconfigv1.HTTPRouteSpec().WithRules(ruleConfigs...))
+	return applyConfig
+}
+
+// buildHTTPRouteRuleApplyFromRule creates an HTTPRouteRuleApplyConfiguration preserving all existing weights.
+func buildHTTPRouteRuleApplyFromRule(rule gatewayv1.HTTPRouteRule) *applyconfigv1.HTTPRouteRuleApplyConfiguration {
+	ruleConfig := applyconfigv1.HTTPRouteRule()
+
+	if rule.Name != nil {
+		ruleConfig.WithName(*rule.Name)
+	}
+
+	for _, backendRef := range rule.BackendRefs {
+		backendConfig := buildHTTPBackendRefApplyFromRef(backendRef)
+		ruleConfig.WithBackendRefs(backendConfig)
+	}
+
+	return ruleConfig
+}
+
+// buildHTTPBackendRefApplyFromRef creates an HTTPBackendRefApplyConfiguration preserving the existing weight.
+func buildHTTPBackendRefApplyFromRef(backendRef gatewayv1.HTTPBackendRef) *applyconfigv1.HTTPBackendRefApplyConfiguration {
+	backendConfig := applyconfigv1.HTTPBackendRef()
+
+	if backendRef.Group != nil {
+		backendConfig.WithGroup(*backendRef.Group)
+	}
+	if backendRef.Kind != nil {
+		backendConfig.WithKind(*backendRef.Kind)
+	}
+	backendConfig.WithName(backendRef.Name)
+	if backendRef.Namespace != nil {
+		backendConfig.WithNamespace(*backendRef.Namespace)
+	}
+	if backendRef.Port != nil {
+		backendConfig.WithPort(int32(*backendRef.Port))
+	}
+	if backendRef.Weight != nil {
+		backendConfig.WithWeight(*backendRef.Weight)
+	}
+
+	return backendConfig
+}
+
+// buildGRPCRouteApplyFromRules creates a GRPCRouteApplyConfiguration from already-modified rules.
+func buildGRPCRouteApplyFromRules(
+	name, namespace string,
+	rules []gatewayv1.GRPCRouteRule,
+	labels map[string]string,
+) *applyconfigv1.GRPCRouteApplyConfiguration {
+	applyConfig := applyconfigv1.GRPCRoute(name, namespace)
+
+	if labels != nil {
+		applyConfig.WithLabels(labels)
+	}
+
+	var ruleConfigs []*applyconfigv1.GRPCRouteRuleApplyConfiguration
+	for _, rule := range rules {
+		ruleConfig := buildGRPCRouteRuleApplyFromRule(rule)
+		ruleConfigs = append(ruleConfigs, ruleConfig)
+	}
+
+	applyConfig.WithSpec(applyconfigv1.GRPCRouteSpec().WithRules(ruleConfigs...))
+	return applyConfig
+}
+
+// buildGRPCRouteRuleApplyFromRule creates a GRPCRouteRuleApplyConfiguration preserving all existing weights.
+func buildGRPCRouteRuleApplyFromRule(rule gatewayv1.GRPCRouteRule) *applyconfigv1.GRPCRouteRuleApplyConfiguration {
+	ruleConfig := applyconfigv1.GRPCRouteRule()
+
+	if rule.Name != nil {
+		ruleConfig.WithName(*rule.Name)
+	}
+
+	for _, backendRef := range rule.BackendRefs {
+		backendConfig := buildGRPCBackendRefApplyFromRef(backendRef)
+		ruleConfig.WithBackendRefs(backendConfig)
+	}
+
+	return ruleConfig
+}
+
+// buildGRPCBackendRefApplyFromRef creates a GRPCBackendRefApplyConfiguration preserving the existing weight.
+func buildGRPCBackendRefApplyFromRef(backendRef gatewayv1.GRPCBackendRef) *applyconfigv1.GRPCBackendRefApplyConfiguration {
+	backendConfig := applyconfigv1.GRPCBackendRef()
+
+	if backendRef.Group != nil {
+		backendConfig.WithGroup(*backendRef.Group)
+	}
+	if backendRef.Kind != nil {
+		backendConfig.WithKind(*backendRef.Kind)
+	}
+	backendConfig.WithName(backendRef.Name)
+	if backendRef.Namespace != nil {
+		backendConfig.WithNamespace(*backendRef.Namespace)
+	}
+	if backendRef.Port != nil {
+		backendConfig.WithPort(int32(*backendRef.Port))
+	}
+	if backendRef.Weight != nil {
+		backendConfig.WithWeight(*backendRef.Weight)
+	}
+
+	return backendConfig
+}

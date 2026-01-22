@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/argoproj-labs/rollouts-plugin-trafficrouter-gatewayapi/internal/defaults"
 	"github.com/argoproj-labs/rollouts-plugin-trafficrouter-gatewayapi/internal/utils"
 	"github.com/argoproj/argo-rollouts/pkg/apis/rollouts/v1alpha1"
 	pluginTypes "github.com/argoproj/argo-rollouts/utils/plugin/types"
@@ -56,8 +57,18 @@ func (r *RpcPlugin) setHTTPRouteWeight(rollout *v1alpha1.Rollout, desiredWeight 
 	if err != nil {
 		r.LogCtx.Error(err, "Failed to handle experiment services")
 	}
-	ensureInProgressLabel(httpRoute, desiredWeight, gatewayAPIConfig)
-	updatedHTTPRoute, err := httpRouteClient.Update(ctx, httpRoute, metav1.UpdateOptions{})
+
+	applyConfig := buildHTTPRouteApplyFromRules(
+		httpRoute.Name,
+		httpRoute.Namespace,
+		httpRoute.Spec.Rules,
+		buildInProgressLabels(desiredWeight, gatewayAPIConfig),
+	)
+
+	updatedHTTPRoute, err := httpRouteClient.Apply(ctx, applyConfig, metav1.ApplyOptions{
+		FieldManager: defaults.FieldManager,
+		Force:        true,
+	})
 	if r.IsTest {
 		r.UpdatedHTTPRouteMock = updatedHTTPRoute
 	}
